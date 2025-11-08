@@ -4,14 +4,14 @@
 
 The memoAgent ecosystem consists of **two separate projects** that work together to provide intelligent meeting and conference transcription:
 
-1. **Advanced Transcriber** (separate repo) - Core transcription service
+1. **Transcriber** (separate repo) - Core transcription service
 2. **memoAgent** (this repo) - Audio source orchestrator and meeting integration
 
 ---
 
-## Project 1: Advanced Transcriber
+## Project 1: Transcriber
 
-**Repository:** `beliczki/advanced-transcriber` (to be created)
+**Repository:** [`beliczki/transcriber`](https://github.com/beliczki/transcriber)
 
 **Purpose:** Headless transcription service that accepts audio streams and returns transcripts with confidence scores.
 
@@ -47,7 +47,7 @@ The memoAgent ecosystem consists of **two separate projects** that work together
 
 **Repository:** `beliczki/memoAgent`
 
-**Purpose:** Audio source orchestrator that captures audio from various sources and routes to Advanced Transcriber.
+**Purpose:** Audio source orchestrator that captures audio from various sources and routes to Transcriber.
 
 ### Key Features:
 - **Multi-Source Input**:
@@ -60,7 +60,7 @@ The memoAgent ecosystem consists of **two separate projects** that work together
   - Microsoft Teams SDK - join as bot, capture audio + speaker metadata
 
 - **Source Selection UI**: Choose which audio source to use
-- **Audio Routing**: Streams selected source to Advanced Transcriber service
+- **Audio Routing**: Streams selected source to Transcriber service
 - **Transcript Display**: Receives transcripts from Transcriber and displays with UI
 
 ### Architecture Diagram:
@@ -86,7 +86,7 @@ The memoAgent ecosystem consists of **two separate projects** that work together
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  Advanced Transcriber                        │
+│                  Transcriber                        │
 │                                                               │
 │         ┌────────────────────────────────────┐              │
 │         │     Audio Distributor              │              │
@@ -258,7 +258,7 @@ ws://localhost:5001/transcribe
 
 ## Development Roadmap
 
-### Phase 1: Advanced Transcriber (Separate Repo)
+### Phase 1: Transcriber (Separate Repo)
 - [ ] Single engine (Google STT) MVP
 - [ ] WebSocket API for audio streaming
 - [ ] Basic transcript output
@@ -303,7 +303,7 @@ ws://localhost:5001/transcribe
 
 ## Deployment
 
-### Advanced Transcriber
+### Transcriber
 - Standalone service
 - Runs on port 5001
 - Can be deployed separately on dedicated hardware
@@ -319,7 +319,7 @@ ws://localhost:5001/transcribe
 
 ## Tech Stack
 
-### Advanced Transcriber
+### Transcriber
 - **Backend:** Python, Flask, Flask-SocketIO
 - **STT Engines:** Google Cloud Speech-to-Text, OpenAI Whisper API
 - **LLM:** OpenAI GPT-4 / Anthropic Claude
@@ -337,7 +337,7 @@ ws://localhost:5001/transcribe
 
 ## Configuration
 
-### Advanced Transcriber (.env)
+### Transcriber (.env)
 ```env
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
 OPENAI_API_KEY=sk-...
@@ -359,7 +359,7 @@ MEMOAGENT_PORT=5000
 
 ## Testing with VLC
 
-You can test the Advanced Transcriber by streaming audio from VLC:
+You can test the Transcriber by streaming audio from VLC:
 
 ```bash
 # Stream audio file to WebSocket (requires VLC with HTTP module)
@@ -371,8 +371,11 @@ python stream_audio.py --file test.wav --url ws://localhost:5001/transcribe
 
 ---
 
+**Status:**
+✅ [`beliczki/transcriber`](https://github.com/beliczki/transcriber) repository created with complete documentation
+
 **Next Steps:**
-1. Create `beliczki/advanced-transcriber` repository
-2. Implement Phase 1 of Transcriber
-3. Refactor this repo (memoAgent) to focus on source integration
-4. Define complete WebSocket protocol
+1. Implement Phase 1 of Transcriber (single-engine MVP)
+2. Implement memoAgent source integration (conference/mic modes)
+3. Add meeting bot capabilities (Google Meet + Teams)
+4. Connect both projects via WebSocket protocol
