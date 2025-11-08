@@ -10,7 +10,7 @@ memoAgent captures audio from multiple sources (conferences, local mic, online m
 
 memoAgent is **part of a two-project ecosystem**:
 
-1. **[Advanced Transcriber](https://github.com/beliczki/advanced-transcriber)** - Headless transcription service (dual STT engines + LLM)
+1. **[Advanced Transcriber](https://github.com/beliczki/transcriber)** - Headless transcription service (dual STT engines + LLM)
 2. **memoAgent** (this project) - Audio source orchestrator and meeting integration
 
 See [PROJECTS_OVERVIEW.md](./PROJECTS_OVERVIEW.md) for complete architecture.
@@ -43,7 +43,7 @@ See [PROJECTS_OVERVIEW.md](./PROJECTS_OVERVIEW.md) for complete architecture.
 ### Prerequisites
 
 - Python 3.10+
-- **[Advanced Transcriber](https://github.com/beliczki/advanced-transcriber)** running (see separate repo)
+- **[Advanced Transcriber](https://github.com/beliczki/transcriber)** running (see separate repo)
 - For Meeting Bots:
   - Google Cloud project (for Google Meet)
   - Azure Bot Service (for MS Teams)
