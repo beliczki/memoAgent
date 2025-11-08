@@ -1,27 +1,52 @@
 # memoAgent
 
-Real-time audio transcription with **dual-engine processing** for improved accuracy through AI-powered consolidation.
+Intelligent meeting and conference transcription orchestrator with **multi-source audio capture** and **meeting bot integration**.
 
 ## Concept
 
-Process **one audio stream** through **two different STT engines** (e.g., Google + Whisper) simultaneously, then use an LLM to consolidate both transcripts into the best possible interpretation. Think of it as getting a "second opinion" on your transcription.
+memoAgent captures audio from multiple sources (conferences, local mic, online meetings) and routes it to the [Advanced Transcriber](https://github.com/beliczki/advanced-transcriber) service for dual-engine transcription with LLM consolidation.
+
+## Architecture
+
+memoAgent is **part of a two-project ecosystem**:
+
+1. **[Advanced Transcriber](https://github.com/beliczki/advanced-transcriber)** - Headless transcription service (dual STT engines + LLM)
+2. **memoAgent** (this project) - Audio source orchestrator and meeting integration
+
+See [PROJECTS_OVERVIEW.md](./PROJECTS_OVERVIEW.md) for complete architecture.
 
 ## Features
 
-✨ **Dual-Engine Processing** - One mic, two STT engines for redundancy
-🎯 **Multi-Engine Support** - Google Cloud STT, OpenAI Whisper, Deepgram
-🤖 **LLM Consolidation** - GPT-4/Claude picks the best interpretation
-📊 **Confidence Comparison** - See where engines agree/disagree
-👤 **Speaker Detection** - Auto-identify speakers from context
-⚙️ **Admin Panel** - Switch engines and configure settings
+🎤 **Multi-Source Audio Input**:
+- **Conference Mode** - Mixer line out (mono) for live events
+- **Local Microphone** - Direct mic capture
+- **Meeting Bot** - Join Google Meet / MS Teams as participant
+
+🤖 **Meeting Bot Integration**:
+- Join Google Meet meetings as bot
+- Join Microsoft Teams meetings as bot
+- Capture audio + speaker metadata
+- Real-time transcription
+
+📡 **Transcription Service Client**:
+- Connects to Advanced Transcriber via WebSocket
+- Streams audio from selected source
+- Receives transcripts with confidence scores
+- Displays engine agreement/disagreement
+
+👤 **Smart Speaker Detection** - From meeting metadata and content
+📊 **Confidence Visualization** - See word-level confidence
+⚙️ **Source Selection UI** - Choose audio input easily
 
 ## Quick Start
 
 ### Prerequisites
 
 - Python 3.10+
-- Google Cloud account with Speech-to-Text API enabled
-- OpenAI API key (for LLM consolidation)
+- **[Advanced Transcriber](https://github.com/beliczki/advanced-transcriber)** running (see separate repo)
+- For Meeting Bots:
+  - Google Cloud project (for Google Meet)
+  - Azure Bot Service (for MS Teams)
 
 ### Installation
 
@@ -39,7 +64,7 @@ pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with Transcriber URL and OAuth credentials
 
 # Initialize database
 python -c "from app.models import init_db; init_db()"
@@ -48,47 +73,78 @@ python -c "from app.models import init_db; init_db()"
 python run.py
 ```
 
-Visit `http://localhost:5000` to start transcribing!
+Visit `http://localhost:5000` to select audio source and start transcribing!
 
 ## Architecture
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed technical documentation.
+See [PROJECTS_OVERVIEW.md](./PROJECTS_OVERVIEW.md) for complete two-project architecture.
 
 ## Configuration
 
-### Google Cloud STT
+### Advanced Transcriber Connection
 
-1. Create service account at [Google Cloud Console](https://console.cloud.google.com)
-2. Download JSON credentials
-3. Set environment variable:
+```env
+TRANSCRIBER_URL=ws://localhost:5001/transcribe
+```
+
+### Google Meet Bot (Optional)
+
+1. Create project at [Google Cloud Console](https://console.cloud.google.com)
+2. Enable Google Meet API
+3. Create OAuth 2.0 credentials
+4. Add to .env:
    ```bash
-   export GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
+   GOOGLE_OAUTH_CLIENT_ID=...
+   GOOGLE_OAUTH_CLIENT_SECRET=...
    ```
 
-### OpenAI (for consolidation)
+### Microsoft Teams Bot (Optional)
 
-```bash
-export OPENAI_API_KEY=sk-...
-```
+1. Create bot at [Azure Bot Service](https://portal.azure.com)
+2. Register Teams app
+3. Add to .env:
+   ```bash
+   MICROSOFT_APP_ID=...
+   MICROSOFT_APP_PASSWORD=...
+   ```
 
 ## Usage
 
-### Basic Transcription
+### Conference Mode
 
-1. Open app in browser
-2. Click "Start Session"
-3. Select two STT engines (e.g., Google + Whisper)
-4. Click "Start Recording" (single microphone)
-5. Watch both engines transcribe in real-time
-6. See consolidated result with confidence heatmap
+1. Connect mixer line out to computer audio interface
+2. Open memoAgent at `http://localhost:5000`
+3. Select "Conference Mode"
+4. Start transcription
+5. Audio streams to Advanced Transcriber
+6. View real-time transcript with confidence scores
 
-### Admin Panel
+### Local Microphone Mode
 
-Access at `/admin` to:
-- Switch between STT engines
-- Configure LLM consolidation settings
-- Manage speaker names
-- View session history
+1. Open memoAgent
+2. Select "Local Microphone"
+3. Choose your microphone device
+4. Start recording
+5. View transcription in real-time
+
+### Meeting Bot Mode (Google Meet)
+
+1. Open memoAgent
+2. Select "Join Google Meet"
+3. Paste meeting link or code
+4. Authenticate with Google OAuth
+5. Bot joins meeting as "memoAgent Bot"
+6. Real-time transcription with speaker names
+7. Leave meeting when done
+
+### Meeting Bot Mode (MS Teams)
+
+1. Open memoAgent
+2. Select "Join Teams Meeting"
+3. Paste meeting link
+4. Bot joins via Bot Framework
+5. Real-time transcription with participants
+6. Leave meeting when done
 
 ## API
 
@@ -194,13 +250,17 @@ MIT License - see [LICENSE](./LICENSE)
 
 ## Roadmap
 
-- [ ] Phase 1: Single engine MVP
-- [ ] Phase 2: Dual engine processing
-- [ ] Phase 3: LLM consolidation
-- [ ] Phase 4: Confidence visualization & heatmap
-- [ ] Phase 5: Speaker detection
-- [ ] Phase 6: Admin panel
-- [ ] Phase 7: Advanced features (3+ engines, export, analytics)
+### memoAgent (This Project)
+- [ ] Phase 1: Basic UI and source selection
+- [ ] Phase 2: WebSocket client for Transcriber
+- [ ] Phase 3: Conference mode (line-in audio capture)
+- [ ] Phase 4: Local microphone mode
+- [ ] Phase 5: Google Meet bot integration
+- [ ] Phase 6: Microsoft Teams bot integration
+- [ ] Phase 7: Advanced features (session recording, export, analytics)
+
+### Advanced Transcriber (Separate Project)
+See [beliczki/advanced-transcriber](https://github.com/beliczki/advanced-transcriber) repository for transcription service roadmap.
 
 ---
 
