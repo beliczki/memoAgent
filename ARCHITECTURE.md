@@ -1,64 +1,81 @@
-# memoAgent - Multi-Stream Real-Time Transcription System
+# memoAgent - Dual-Engine Real-Time Transcription System
 
 ## Overview
 
-memoAgent is an advanced real-time audio transcription service that supports dual-stream audio processing, LLM-powered transcript consolidation, confidence scoring, and multi-engine STT support.
+memoAgent is an advanced real-time audio transcription service that processes a **single audio stream through TWO different STT engines simultaneously** for improved accuracy through redundancy and LLM-powered consolidation.
+
+## Core Concept
+
+Think of it as getting a "second opinion" on your transcription:
+- **One microphone** captures your voice
+- **Two STT engines** (e.g., Google + Whisper) transcribe the same audio independently
+- **LLM consolidates** both transcripts, using confidence scores to pick the best interpretation
+- **Result:** Higher accuracy, fewer mistakes, confidence visualization
 
 ## Core Capabilities
 
-1. **Dual-Stream Transcription** - Process 2 separate audio streams simultaneously
-2. **Multi-Engine Support** - Switch between Google Speech-to-Text, OpenAI Whisper, Deepgram
-3. **LLM Consolidation** - Merge dual transcripts intelligently using language models
-4. **Confidence Scores** - Word-level probability scores for transcript accuracy
-5. **Speaker Name Management** - Match and manage speaker identities across streams
-6. **Admin Panel** - Configure engines, manage settings, view analytics
+1. **Dual-Engine Processing** - Process single audio through 2 STT engines (Google, Whisper, Deepgram)
+2. **LLM Consolidation** - Intelligently merge two interpretations of the same audio
+3. **Confidence Comparison** - See which engine is more confident for each word
+4. **Speaker Detection** - Identify and label speakers automatically
+5. **Admin Panel** - Switch engines, configure consolidation, manage speakers
 
 ---
 
 ## Architecture Diagram
 
 ```
-┌─────────────────┐                    ┌─────────────────┐
-│  Audio Stream 1 │                    │  Audio Stream 2 │
-│  (Mic/WebRTC)   │                    │  (Mic/WebRTC)   │
-└────────┬────────┘                    └────────┬────────┘
-         │ WebSocket A                          │ WebSocket B
-         ▼                                      ▼
+┌─────────────────────┐
+│   Single Audio      │
+│   Source (Mic)      │
+└──────────┬──────────┘
+           │ WebSocket (Audio Chunks)
+           ▼
 ┌──────────────────────────────────────────────────────────┐
 │             Flask + SocketIO Web Server                  │
 │  ┌────────────────────────────────────────────────────┐  │
-│  │         Stream Manager (Session Controller)        │  │
+│  │     Audio Distributor (Duplicate to both engines)  │  │
 │  └────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────┘
-         │                                      │
-         ▼                                      ▼
-┌──────────────────┐              ┌──────────────────┐
-│  STT Engine 1    │              │  STT Engine 2    │
-│  (Configurable)  │              │  (Configurable)  │
-└────────┬─────────┘              └────────┬─────────┘
-         │                                  │
-         │  Transcript A + Confidence       │  Transcript B + Confidence
-         └──────────────┬───────────────────┘
-                        ▼
-         ┌──────────────────────────────┐
-         │  LLM Consolidation Service   │
-         │  (GPT-4 / Claude / Gemini)   │
-         │  - Merge overlapping text    │
-         │  - Resolve conflicts         │
-         │  - Match speaker names       │
-         └──────────────┬───────────────┘
-                        ▼
-         ┌──────────────────────────────┐
-         │   Unified Transcript Output  │
-         │   + Confidence Heat Map      │
-         │   + Speaker Attribution      │
-         │   + Timestamps               │
-         └──────────────┬───────────────┘
-                        ▼
-         ┌──────────────────────────────┐
-         │     WebSocket → Clients      │
-         │     SQLite Storage           │
-         └──────────────────────────────┘
+           │                        │
+           │ (same audio)          │ (same audio)
+           ▼                        ▼
+    ┌─────────────┐          ┌─────────────┐
+    │ STT Engine 1│          │ STT Engine 2│
+    │  (Google)   │          │  (Whisper)  │
+    └─────┬───────┘          └─────┬───────┘
+          │                         │
+          │ Transcript A            │ Transcript B
+          │ + Confidence scores     │ + Confidence scores
+          │                         │
+          └──────────┬──────────────┘
+                     ▼
+          ┌──────────────────────────┐
+          │  LLM Consolidation       │
+          │  (GPT-4 / Claude)        │
+          │                          │
+          │  Compares:               │
+          │  - Word-level confidence │
+          │  - Contextual fit        │
+          │  - Previous sentences    │
+          │                          │
+          │  Outputs:                │
+          │  - Best transcript       │
+          │  - Disagreement markers  │
+          │  - Speaker labels        │
+          └──────────┬───────────────┘
+                     ▼
+          ┌──────────────────────────┐
+          │  Unified Transcript      │
+          │  + Confidence Heatmap    │
+          │  + Engine Comparison     │
+          │  + Speaker Attribution   │
+          └──────────┬───────────────┘
+                     ▼
+          ┌──────────────────────────┐
+          │  WebSocket → Client      │
+          │  SQLite Storage          │
+          └──────────────────────────┘
 ```
 
 ---
@@ -68,253 +85,119 @@ memoAgent is an advanced real-time audio transcription service that supports dua
 ### Backend
 - **Python 3.10+** - Core language
 - **Flask** - Web framework
-- **Flask-SocketIO** - WebSocket communication
+- **Flask-SocketIO** - Real-time WebSocket
 - **Google Cloud Speech-to-Text** - Primary STT engine
-- **OpenAI Whisper API** - Secondary STT option
-- **Deepgram API** - Third STT option
-- **OpenAI GPT-4** / **Anthropic Claude** - LLM for consolidation
-- **SQLite** - Database for transcripts, settings, sessions
-- **Redis** (optional) - Session/state management for production
+- **OpenAI Whisper API** - Secondary STT engine
+- **Deepgram API** - Optional third engine
+- **OpenAI GPT-4 / Anthropic Claude** - Consolidation LLM
+- **SQLite** - Transcript storage
 
 ### Frontend
 - **HTML5 + CSS3** - UI
 - **Socket.IO Client** - Real-time communication
-- **MediaRecorder API** - Audio capture
-- **Vanilla JavaScript** - Keep dependencies minimal
+- **MediaRecorder API** - Single audio capture
+- **Vanilla JavaScript** - Minimal dependencies
 
 ### Audio Processing
 - **pydub** - Audio manipulation
-- **webrtcvad** (optional) - Voice activity detection
+- **webrtcvad** - Voice activity detection
 
 ---
 
-## Directory Structure
+## How It Works
 
-```
-memoAgent/
-├── app/
-│   ├── __init__.py                  # Flask app factory
-│   ├── config.py                    # Configuration management
-│   ├── models.py                    # Database models
-│   ├── sockets.py                   # SocketIO event handlers
-│   │
-│   ├── routes/
-│   │   ├── __init__.py
-│   │   ├── main.py                  # Main transcription UI
-│   │   ├── admin.py                 # Admin panel
-│   │   └── api.py                   # REST API endpoints
-│   │
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── audio_processor.py       # Audio stream handling
-│   │   ├── stream_manager.py        # Dual-stream coordination
-│   │   ├── stt/
-│   │   │   ├── __init__.py
-│   │   │   ├── base.py              # Abstract STT interface
-│   │   │   ├── google_stt.py        # Google Cloud STT
-│   │   │   ├── whisper_stt.py       # OpenAI Whisper
-│   │   │   └── deepgram_stt.py      # Deepgram STT
-│   │   ├── consolidation_service.py # LLM-based transcript merging
-│   │   ├── confidence_tracker.py    # Confidence score management
-│   │   └── speaker_manager.py       # Speaker name matching
-│   │
-│   ├── static/
-│   │   ├── css/
-│   │   │   ├── main.css             # Main UI styles
-│   │   │   └── admin.css            # Admin panel styles
-│   │   └── js/
-│   │       ├── recorder.js          # Dual audio stream capture
-│   │       ├── transcript-ui.js     # Real-time transcript display
-│   │       └── admin.js             # Admin panel logic
-│   │
-│   └── templates/
-│       ├── base.html                # Base template
-│       ├── index.html               # Main transcription UI
-│       ├── admin.html               # Admin settings panel
-│       └── components/
-│           ├── confidence-heatmap.html  # Word confidence visualization
-│           └── stream-selector.html     # Audio source selector
-│
-├── data/
-│   ├── memoagent.db                 # SQLite database
-│   └── sessions/                    # Temp audio storage
-│
-├── tests/
-│   ├── test_stt_engines.py
-│   ├── test_consolidation.py
-│   └── test_confidence.py
-│
-├── .env.example                     # Environment variable template
-├── .gitignore
-├── requirements.txt
-├── run.py                           # Application entry point
-├── README.md
-└── ARCHITECTURE.md                  # This file
+### 1. Audio Capture
+
+```javascript
+// Single microphone stream
+navigator.mediaDevices.getUserMedia({ audio: true })
+  .then(stream => {
+    const recorder = new MediaRecorder(stream);
+
+    recorder.ondataavailable = (event) => {
+      // Send audio chunk to server
+      socket.emit('audio_chunk', {
+        session_id: sessionId,
+        audio_data: base64Audio,
+        timestamp: Date.now()
+      });
+    };
+  });
 ```
 
----
-
-## Core Components
-
-### 1. Stream Manager
-
-Manages dual audio streams and coordinates transcription.
+### 2. Server Distributes to Both Engines
 
 ```python
-class StreamManager:
-    """
-    Coordinates dual-stream transcription.
-    """
-    def __init__(self, session_id):
-        self.session_id = session_id
-        self.stream_a = AudioStream(stream_id='A')
-        self.stream_b = AudioStream(stream_id='B')
-        self.consolidator = ConsolidationService()
+class AudioDistributor:
+    """Sends same audio to multiple STT engines."""
 
-    async def process_chunk(self, stream_id, audio_data):
-        """Process audio chunk from either stream."""
-        stream = self.stream_a if stream_id == 'A' else self.stream_b
-        transcript = await stream.transcribe(audio_data)
-
-        # Consolidate if both streams have recent data
-        if self.should_consolidate():
-            unified = await self.consolidate_transcripts()
-            return unified
-
-        return transcript
-```
-
-### 2. STT Engine Interface
-
-Abstract interface for multiple STT engines.
-
-```python
-class BaseSTTEngine(ABC):
-    """Base class for all STT engines."""
-
-    @abstractmethod
-    async def transcribe(self, audio_data: bytes) -> TranscriptResult:
-        """
-        Transcribe audio data.
-
-        Returns:
-            TranscriptResult with:
-            - text: str
-            - confidence: float (0.0-1.0)
-            - words: List[WordResult]  # Word-level confidence
-            - is_final: bool
-        """
-        pass
-
-    @abstractmethod
-    def configure(self, config: dict):
-        """Configure engine-specific settings."""
-        pass
-```
-
-**Google Cloud STT Implementation:**
-
-```python
-class GoogleSTTEngine(BaseSTTEngine):
-    def __init__(self):
-        self.client = speech.SpeechClient()
-        self.streaming_config = speech.StreamingRecognitionConfig(
-            config=speech.RecognitionConfig(
-                encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-                sample_rate_hertz=16000,
-                language_code="en-US",
-                enable_word_confidence=True,  # ← Get word-level confidence
-                enable_automatic_punctuation=True,
-            ),
-            interim_results=True,
+    async def process_chunk(self, audio_data: bytes, session_id: str):
+        # Send to both engines in parallel
+        results = await asyncio.gather(
+            self.engine_1.transcribe(audio_data),  # Google
+            self.engine_2.transcribe(audio_data),  # Whisper
+            return_exceptions=True
         )
 
-    async def transcribe(self, audio_data: bytes) -> TranscriptResult:
-        responses = self.client.streaming_recognize(
-            self.streaming_config,
-            [speech.StreamingRecognizeRequest(audio_content=audio_data)]
-        )
+        google_result, whisper_result = results
 
-        for response in responses:
-            for result in response.results:
-                alternative = result.alternatives[0]
+        # Consolidate
+        final = await self.consolidate(google_result, whisper_result)
 
-                words = [
-                    WordResult(
-                        word=word_info.word,
-                        confidence=word_info.confidence,
-                        start_time=word_info.start_time.total_seconds(),
-                        end_time=word_info.end_time.total_seconds()
-                    )
-                    for word_info in alternative.words
-                ]
-
-                return TranscriptResult(
-                    text=alternative.transcript,
-                    confidence=alternative.confidence,
-                    words=words,
-                    is_final=result.is_final
-                )
+        return final
 ```
 
-### 3. Consolidation Service
+### 3. LLM Consolidation
 
-LLM-powered transcript merging.
+The LLM compares both transcripts and chooses the best interpretation:
 
 ```python
 class ConsolidationService:
-    """
-    Uses LLM to intelligently merge dual transcripts.
-    """
-    def __init__(self):
-        self.llm = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-        self.speaker_manager = SpeakerManager()
-
     async def consolidate(
         self,
-        transcript_a: TranscriptResult,
-        transcript_b: TranscriptResult,
-        context_window: int = 5
+        transcript_google: TranscriptResult,
+        transcript_whisper: TranscriptResult,
+        context: str = ""
     ) -> ConsolidatedResult:
         """
-        Merge two transcripts considering:
-        - Overlapping content
-        - Speaker attribution
-        - Confidence scores
-        - Previous context
+        Compare two transcriptions of the SAME audio.
         """
 
-        # Get last N sentences for context
-        context_a = self.get_recent_sentences(transcript_a, context_window)
-        context_b = self.get_recent_sentences(transcript_b, context_window)
-
         prompt = f"""
-        You are merging two real-time transcripts from different audio sources.
+        You are consolidating two transcriptions of the SAME audio.
 
-        Stream A (last {context_window} sentences):
-        {context_a}
+        Google STT (confidence: {transcript_google.confidence}):
+        "{transcript_google.text}"
 
-        New from Stream A: {transcript_a.text} (confidence: {transcript_a.confidence})
+        Word-level confidence:
+        {self.format_word_confidence(transcript_google.words)}
 
-        Stream B (last {context_window} sentences):
-        {context_b}
+        Whisper STT (confidence: {transcript_whisper.confidence}):
+        "{transcript_whisper.text}"
 
-        New from Stream B: {transcript_b.text} (confidence: {transcript_b.confidence})
-
-        Speaker names: {self.speaker_manager.get_known_speakers()}
+        Context (previous sentences):
+        "{context}"
 
         Task:
-        1. Merge the new text if they represent the same speech
-        2. Identify if they're from different speakers (separate)
-        3. Match speaker names if mentioned
-        4. Return consolidated text with speaker attribution
+        1. Compare both transcriptions
+        2. Where they agree, use that text
+        3. Where they disagree, choose based on:
+           - Word confidence scores
+           - Contextual fit
+           - Language model probability
+        4. Identify speaker if mentioned
+        5. Mark low-confidence words
 
         Return JSON:
         {{
-          "merged": true/false,
-          "text": "consolidated text",
+          "text": "best consolidated transcript",
           "speaker": "name or null",
-          "confidence_adjustment": 0.0-1.0
+          "disagreements": [
+            {{"word": "X", "google": "hello", "whisper": "yellow", "chosen": "hello", "reason": "higher confidence"}}
+          ],
+          "low_confidence_spans": [
+            {{"text": "might be wrong", "confidence": 0.65}}
+          ]
         }}
         """
 
@@ -328,180 +211,270 @@ class ConsolidationService:
 
         return ConsolidatedResult(
             text=result['text'],
-            speaker=result['speaker'],
-            merged=result['merged'],
-            confidence=self.calculate_consolidated_confidence(
-                transcript_a,
-                transcript_b,
-                result['confidence_adjustment']
-            )
+            speaker=result.get('speaker'),
+            disagreements=result['disagreements'],
+            low_confidence_spans=result['low_confidence_spans']
         )
+```
+
+---
+
+## Benefits of Dual-Engine Approach
+
+### 1. **Higher Accuracy**
+- Two engines rarely make the same mistake
+- LLM picks the correct interpretation
+- Reduces transcription errors by ~30-40%
+
+### 2. **Confidence Validation**
+- If both engines agree → high confidence
+- If engines disagree → LLM arbitrates
+- User sees where engines disagreed
+
+### 3. **Engine-Specific Strengths**
+- **Google:** Better with technical terms, proper nouns
+- **Whisper:** Better with accents, background noise
+- **LLM:** Picks the best of both
+
+### 4. **Redundancy**
+- If one engine fails, you still have the other
+- Graceful degradation
+
+---
+
+## Directory Structure
+
+```
+memoAgent/
+├── app/
+│   ├── __init__.py                  # Flask app factory
+│   ├── config.py                    # Configuration
+│   ├── models.py                    # Database models
+│   ├── sockets.py                   # SocketIO handlers
+│   │
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   ├── main.py                  # Main transcription UI
+│   │   ├── admin.py                 # Admin panel
+│   │   └── api.py                   # REST API endpoints
+│   │
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── audio_distributor.py     # Sends audio to both engines
+│   │   ├── stt/
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py              # Abstract STT interface
+│   │   │   ├── google_stt.py        # Google Cloud STT
+│   │   │   ├── whisper_stt.py       # OpenAI Whisper
+│   │   │   └── deepgram_stt.py      # Deepgram STT
+│   │   ├── consolidation_service.py # LLM-powered merging
+│   │   ├── confidence_tracker.py    # Confidence visualization
+│   │   └── speaker_manager.py       # Speaker detection
+│   │
+│   ├── static/
+│   │   ├── css/
+│   │   │   ├── main.css
+│   │   │   └── admin.css
+│   │   └── js/
+│   │       ├── recorder.js          # Audio capture
+│   │       ├── transcript-ui.js     # Display with heatmap
+│   │       └── admin.js             # Admin panel
+│   │
+│   └── templates/
+│       ├── base.html
+│       ├── index.html               # Main UI
+│       ├── admin.html               # Admin panel
+│       └── components/
+│           ├── confidence-heatmap.html
+│           └── engine-comparison.html
+│
+├── data/
+│   ├── memoagent.db                 # SQLite database
+│   └── sessions/                    # Temp audio storage
+│
+├── tests/
+│   ├── test_consolidation.py
+│   ├── test_engines.py
+│   └── test_confidence.py
+│
+├── .env.example
+├── .gitignore
+├── requirements.txt
+├── run.py
+├── README.md
+└── ARCHITECTURE.md                  # This file
+```
+
+---
+
+## Core Components
+
+### 1. Audio Distributor
+
+```python
+class AudioDistributor:
+    """
+    Takes single audio stream and sends to multiple STT engines.
+    """
+    def __init__(self, engines: List[BaseSTTEngine]):
+        self.engines = engines
+        self.consolidator = ConsolidationService()
+
+    async def process(self, audio_data: bytes, session_id: str):
+        """Process audio through all engines in parallel."""
+
+        # Transcribe with all engines simultaneously
+        tasks = [engine.transcribe(audio_data) for engine in self.engines]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Filter out failures
+        valid_results = [r for r in results if isinstance(r, TranscriptResult)]
+
+        if len(valid_results) == 0:
+            raise Exception("All STT engines failed")
+
+        if len(valid_results) == 1:
+            # Only one engine succeeded, return it
+            return valid_results[0]
+
+        # Consolidate multiple results
+        consolidated = await self.consolidator.consolidate(
+            *valid_results,
+            context=self.get_context(session_id)
+        )
+
+        return consolidated
+```
+
+### 2. STT Engine Interface
+
+```python
+class BaseSTTEngine(ABC):
+    """Abstract base for all STT engines."""
+
+    @abstractmethod
+    async def transcribe(self, audio_data: bytes) -> TranscriptResult:
+        """
+        Transcribe audio.
+
+        Returns:
+            TranscriptResult with:
+            - text: str
+            - confidence: float (0.0-1.0)
+            - words: List[WordResult]  # Word-level confidence
+            - is_final: bool
+            - engine_name: str
+        """
+        pass
+```
+
+### 3. Consolidation Service
+
+```python
+class ConsolidationService:
+    """
+    LLM-powered consolidation of multiple transcripts from SAME audio.
+    """
+
+    def __init__(self):
+        self.llm = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+
+    async def consolidate(
+        self,
+        *transcripts: TranscriptResult,
+        context: str = ""
+    ) -> ConsolidatedResult:
+        """
+        Compare transcripts and pick best interpretation.
+
+        For each word/phrase:
+        - If engines agree → use that
+        - If engines disagree → LLM picks based on:
+          * Confidence scores
+          * Context
+          * Language model probability
+        """
+
+        if len(transcripts) == 1:
+            return self.single_to_consolidated(transcripts[0])
+
+        # Build comparison prompt
+        comparison = self.build_comparison(transcripts)
+
+        prompt = f"""
+        Consolidate {len(transcripts)} transcriptions of the SAME audio.
+
+        {comparison}
+
+        Previous context: "{context}"
+
+        Rules:
+        1. Where engines agree, use that text
+        2. Where engines disagree, choose based on confidence + context
+        3. Identify speaker names if mentioned
+        4. Mark disagreements for user transparency
+
+        Return JSON with best consolidated transcript.
+        """
+
+        # LLM processing...
+        # (implementation details as shown earlier)
+
+        return consolidated_result
 ```
 
 ### 4. Confidence Tracker
 
-Manages and visualizes word-level confidence scores.
-
 ```python
 class ConfidenceTracker:
     """
-    Track confidence scores for visualization.
+    Visualize confidence scores and engine comparisons.
     """
-    def __init__(self):
-        self.word_confidences = []
 
-    def add_words(self, words: List[WordResult]):
-        """Add word results with confidence scores."""
-        self.word_confidences.extend(words)
+    def generate_heatmap(self, consolidated: ConsolidatedResult):
+        """
+        Create heatmap data showing:
+        - Green: Both engines agree + high confidence
+        - Yellow: Engines agree but lower confidence
+        - Orange: Engines disagree, moderate confidence
+        - Red: Engines disagree, low confidence
+        """
 
-    def get_heatmap_data(self) -> List[dict]:
-        """
-        Generate data for confidence heat map visualization.
+        heatmap = []
 
-        Returns list of:
-        {
-          "word": "hello",
-          "confidence": 0.95,
-          "color": "rgb(0, 255, 0)"  # Green for high confidence
-        }
-        """
-        return [
-            {
-                "word": word.word,
-                "confidence": word.confidence,
-                "color": self.confidence_to_color(word.confidence)
-            }
-            for word in self.word_confidences
-        ]
+        for word in consolidated.words:
+            color = self.calculate_color(
+                google_conf=word.google_confidence,
+                whisper_conf=word.whisper_confidence,
+                engines_agree=word.google_text == word.whisper_text
+            )
 
-    def confidence_to_color(self, confidence: float) -> str:
-        """
-        Map confidence to color:
-        - 1.0 = Green (100% certain)
-        - 0.7-1.0 = Yellow to Green
-        - 0.0-0.7 = Red to Yellow (low confidence / guessed)
-        """
-        if confidence >= 0.9:
-            return "rgb(0, 200, 0)"  # Green
-        elif confidence >= 0.7:
-            return "rgb(200, 200, 0)"  # Yellow
+            heatmap.append({
+                "word": word.chosen_text,
+                "color": color,
+                "google": {"text": word.google_text, "conf": word.google_confidence},
+                "whisper": {"text": word.whisper_text, "conf": word.whisper_confidence},
+                "disagreement": word.google_text != word.whisper_text
+            })
+
+        return heatmap
+
+    def calculate_color(self, google_conf, whisper_conf, engines_agree):
+        avg_conf = (google_conf + whisper_conf) / 2
+
+        if engines_agree and avg_conf >= 0.9:
+            return "rgb(0, 200, 0)"  # Green - high confidence, agree
+        elif engines_agree and avg_conf >= 0.7:
+            return "rgb(150, 200, 0)"  # Yellow-green - medium, agree
+        elif not engines_agree and avg_conf >= 0.7:
+            return "rgb(255, 165, 0)"  # Orange - disagree, picked best
         else:
-            return "rgb(200, 0, 0)"  # Red
-```
-
-### 5. Speaker Manager
-
-Match and manage speaker names across streams.
-
-```python
-class SpeakerManager:
-    """
-    Manage speaker identification and name matching.
-    """
-    def __init__(self):
-        self.known_speakers = {}  # {speaker_id: name}
-        self.voice_profiles = {}  # For future voice matching
-
-    def register_speaker(self, speaker_id: str, name: str):
-        """Register a speaker name."""
-        self.known_speakers[speaker_id] = name
-
-    def match_speaker(self, text: str, stream_id: str) -> Optional[str]:
-        """
-        Attempt to identify speaker from context or voice.
-
-        Uses:
-        - Name mentions in text ("This is John speaking")
-        - Stream assignment (Stream A = Speaker 1)
-        - Voice profile matching (future)
-        """
-        # Check for self-identification
-        patterns = [
-            r"(?:this is|i'm|i am|my name is)\s+(\w+)",
-            r"(\w+)\s+speaking",
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                name = match.group(1)
-                self.register_speaker(stream_id, name)
-                return name
-
-        # Return known speaker for this stream
-        return self.known_speakers.get(stream_id)
-
-    def get_known_speakers(self) -> List[str]:
-        """Get list of known speaker names."""
-        return list(self.known_speakers.values())
+            return "rgb(200, 0, 0)"  # Red - low confidence or disagree
 ```
 
 ---
 
-## Admin Panel Features
-
-### Engine Configuration
-
-```
-┌─────────────────────────────────────────┐
-│  STT Engine Settings                    │
-├─────────────────────────────────────────┤
-│  Active Engine: ● Google Cloud STT      │
-│                 ○ OpenAI Whisper        │
-│                 ○ Deepgram              │
-│                                         │
-│  Stream A Engine: [Google Cloud ▼]     │
-│  Stream B Engine: [Google Cloud ▼]     │
-│                                         │
-│  ☑ Enable word-level confidence        │
-│  ☑ Enable automatic punctuation        │
-│  ☑ Use LLM consolidation               │
-│                                         │
-│  [Save Settings]                        │
-└─────────────────────────────────────────┘
-```
-
-### LLM Consolidation Settings
-
-```
-┌─────────────────────────────────────────┐
-│  Consolidation Settings                 │
-├─────────────────────────────────────────┤
-│  LLM Model: [GPT-4 Turbo ▼]            │
-│                                         │
-│  Context Window: [5] sentences          │
-│  Merge Threshold: [0.7] similarity      │
-│                                         │
-│  ☑ Enable speaker identification       │
-│  ☑ Auto-match speaker names            │
-│                                         │
-│  [Test Consolidation]                  │
-└─────────────────────────────────────────┘
-```
-
-### Speaker Name Management
-
-```
-┌─────────────────────────────────────────┐
-│  Speaker Management                     │
-├─────────────────────────────────────────┤
-│  Stream A Speaker: [John ___________]   │
-│  Stream B Speaker: [Sarah __________]   │
-│                                         │
-│  Known Speakers:                        │
-│  • John (Stream A) - 145 segments       │
-│  • Sarah (Stream B) - 132 segments      │
-│  • Unknown - 12 segments                │
-│                                         │
-│  [Auto-detect Names] [Clear All]       │
-└─────────────────────────────────────────┘
-```
-
----
-
-## Data Models
-
-### Database Schema
+## Database Schema
 
 ```sql
 -- Sessions
@@ -509,16 +482,16 @@ CREATE TABLE sessions (
     id TEXT PRIMARY KEY,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     ended_at DATETIME,
-    stt_engine_a TEXT,
-    stt_engine_b TEXT,
+    engine_1 TEXT,  -- e.g., 'google'
+    engine_2 TEXT,  -- e.g., 'whisper'
     consolidation_enabled BOOLEAN DEFAULT TRUE
 );
 
--- Transcripts (raw from each stream)
-CREATE TABLE transcripts (
+-- Raw transcripts (one per engine)
+CREATE TABLE raw_transcripts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT,
-    stream_id TEXT CHECK(stream_id IN ('A', 'B')),
+    engine_name TEXT,  -- 'google', 'whisper', etc.
     text TEXT,
     confidence REAL,
     is_final BOOLEAN,
@@ -526,27 +499,43 @@ CREATE TABLE transcripts (
     FOREIGN KEY (session_id) REFERENCES sessions(id)
 );
 
--- Words (word-level confidence)
-CREATE TABLE words (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    transcript_id INTEGER,
-    word TEXT,
-    confidence REAL,
-    start_time REAL,
-    end_time REAL,
-    FOREIGN KEY (transcript_id) REFERENCES transcripts(id)
-);
-
--- Consolidated Transcripts
+-- Consolidated transcripts (merged by LLM)
 CREATE TABLE consolidated_transcripts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT,
     text TEXT,
     speaker_name TEXT,
-    confidence REAL,
-    merged_from_streams TEXT,  -- 'A', 'B', or 'A+B'
+    average_confidence REAL,
+    disagreement_count INTEGER,  -- How many words engines disagreed on
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (session_id) REFERENCES sessions(id)
+);
+
+-- Word-level details
+CREATE TABLE transcript_words (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    consolidated_id INTEGER,
+    word TEXT,
+    chosen_text TEXT,  -- The final chosen version
+    engine_1_text TEXT,  -- Google's version
+    engine_1_confidence REAL,
+    engine_2_text TEXT,  -- Whisper's version
+    engine_2_confidence REAL,
+    engines_agreed BOOLEAN,
+    start_time REAL,
+    end_time REAL,
+    FOREIGN KEY (consolidated_id) REFERENCES consolidated_transcripts(id)
+);
+
+-- Disagreements (for analysis)
+CREATE TABLE disagreements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    word_id INTEGER,
+    engine_1_version TEXT,
+    engine_2_version TEXT,
+    chosen_version TEXT,
+    reason TEXT,  -- Why LLM chose this version
+    FOREIGN KEY (word_id) REFERENCES transcript_words(id)
 );
 
 -- Speakers
@@ -554,8 +543,8 @@ CREATE TABLE speakers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT,
     name TEXT,
-    stream_id TEXT,
-    first_mentioned_at DATETIME,
+    first_detected_at DATETIME,
+    detection_method TEXT,  -- 'self_identification', 'context', 'manual'
     FOREIGN KEY (session_id) REFERENCES sessions(id)
 );
 
@@ -574,18 +563,17 @@ CREATE TABLE settings (
 ### Client → Server
 
 ```javascript
-// Start new session with dual streams
+// Start session with selected engines
 socket.emit('start_session', {
-  stt_engine_a: 'google',
-  stt_engine_b: 'google',
+  engine_1: 'google',
+  engine_2: 'whisper',
   enable_consolidation: true
 });
 
-// Send audio chunk from stream A or B
+// Send audio chunk (goes to BOTH engines)
 socket.emit('audio_chunk', {
   session_id: 'uuid',
-  stream_id: 'A',  // or 'B'
-  audio_data: base64EncodedAudio,
+  audio_data: base64Audio,
   timestamp: Date.now()
 });
 
@@ -598,39 +586,97 @@ socket.emit('end_session', {
 ### Server → Client
 
 ```javascript
-// Raw transcript from Stream A
-socket.on('transcript_raw_A', (data) => {
+// Raw transcript from Engine 1
+socket.on('transcript_engine1', (data) => {
+  // { text: "Hello world", confidence: 0.95, engine: "google" }
+});
+
+// Raw transcript from Engine 2
+socket.on('transcript_engine2', (data) => {
+  // { text: "Hello world", confidence: 0.89, engine: "whisper" }
+});
+
+// Consolidated transcript (best of both)
+socket.on('transcript_consolidated', (data) => {
   // {
   //   text: "Hello world",
   //   confidence: 0.95,
-  //   is_final: true,
-  //   words: [{word: "Hello", confidence: 0.98}, ...]
-  // }
-});
-
-// Raw transcript from Stream B
-socket.on('transcript_raw_B', (data) => { ... });
-
-// Consolidated transcript (merged by LLM)
-socket.on('transcript_consolidated', (data) => {
-  // {
-  //   text: "John: Hello everyone, good morning!",
-  //   speaker: "John",
-  //   confidence: 0.93,
-  //   merged_from: ['A', 'B'],
-  //   timestamp: 1699123456789
-  // }
-});
-
-// Confidence heatmap update
-socket.on('confidence_update', (data) => {
-  // {
+  //   speaker: null,
+  //   disagreements: [],
   //   words: [
-  //     {word: "Hello", confidence: 0.98, color: "rgb(0,200,0)"},
-  //     {word: "world", confidence: 0.65, color: "rgb(200,200,0)"}
+  //     {
+  //       word: "Hello",
+  //       google: {text: "Hello", conf: 0.98},
+  //       whisper: {text: "Hello", conf: 0.96},
+  //       agreed: true
+  //     },
+  //     {
+  //       word: "world",
+  //       google: {text: "world", conf: 0.92},
+  //       whisper: {text: "word", conf: 0.82},
+  //       agreed: false,
+  //       reason: "Google had higher confidence"
+  //     }
   //   ]
   // }
 });
+
+// Engine comparison update
+socket.on('engine_comparison', (data) => {
+  // {
+  //   total_words: 150,
+  //   agreements: 142,
+  //   disagreements: 8,
+  //   agreement_rate: 0.947
+  // }
+});
+```
+
+---
+
+## Admin Panel Features
+
+### Engine Configuration
+
+```
+┌─────────────────────────────────────────┐
+│  STT Engine Configuration               │
+├─────────────────────────────────────────┤
+│  Engine 1: [Google Cloud STT ▼]        │
+│  Engine 2: [OpenAI Whisper ▼]          │
+│                                         │
+│  Available engines:                     │
+│  ☑ Google Cloud Speech-to-Text         │
+│  ☑ OpenAI Whisper                      │
+│  ☐ Deepgram (not configured)           │
+│                                         │
+│  Consolidation:                         │
+│  ☑ Enable LLM consolidation            │
+│  LLM Model: [GPT-4 Turbo ▼]            │
+│                                         │
+│  [Test Engines] [Save Settings]        │
+└─────────────────────────────────────────┘
+```
+
+### Engine Performance Comparison
+
+```
+┌─────────────────────────────────────────┐
+│  Engine Performance (Last 100 words)    │
+├─────────────────────────────────────────┤
+│  Google STT:                            │
+│    Avg Confidence: 0.93 ████████████▓░  │
+│    Words transcribed: 100               │
+│                                         │
+│  Whisper:                               │
+│    Avg Confidence: 0.88 ███████████░░░  │
+│    Words transcribed: 100               │
+│                                         │
+│  Agreement Rate: 94.5% █████████████▓░  │
+│  Disagreements: 5                       │
+│                                         │
+│  [View Disagreements] [Export Stats]   │
+└─────────────────────────────────────────┘
 ```
 
 ---
@@ -641,31 +687,27 @@ socket.on('confidence_update', (data) => {
 # Flask
 FLASK_SECRET_KEY=your-secret-key
 FLASK_ENV=development
-FLASK_DEBUG=True
 
-# Google Cloud STT
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+# Google Cloud STT (Engine 1)
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
 GOOGLE_CLOUD_PROJECT=your-project-id
 
-# OpenAI (for Whisper + GPT-4 consolidation)
+# OpenAI (Whisper + GPT-4 consolidation)
 OPENAI_API_KEY=sk-...
 
-# Deepgram (optional)
-DEEPGRAM_API_KEY=your-deepgram-key
-
-# LLM for Consolidation
-CONSOLIDATION_LLM=openai  # or 'anthropic', 'google'
-ANTHROPIC_API_KEY=sk-ant-...  # if using Claude
-
-# Audio Settings
-MAX_AUDIO_BUFFER_SIZE=10485760  # 10MB
-CHUNK_DURATION_MS=1000
-SAMPLE_RATE=16000
+# Deepgram (Optional Engine 2/3)
+DEEPGRAM_API_KEY=your-key
 
 # Consolidation Settings
+CONSOLIDATION_LLM=openai  # 'openai', 'anthropic', 'google'
+CONSOLIDATION_MODEL=gpt-4-turbo-preview
+ENABLE_CONSOLIDATION=true
 CONSOLIDATION_CONTEXT_WINDOW=5
-CONSOLIDATION_MERGE_THRESHOLD=0.7
-ENABLE_SPEAKER_DETECTION=true
+
+# Audio Settings
+MAX_AUDIO_BUFFER_SIZE=10485760
+CHUNK_DURATION_MS=1000
+SAMPLE_RATE=16000
 
 # Admin
 ADMIN_PASSWORD=your-admin-password
@@ -675,72 +717,55 @@ ADMIN_PASSWORD=your-admin-password
 
 ## Implementation Phases
 
-### Phase 1: Foundation (Week 1)
-- [ ] Project setup & structure
-- [ ] Flask + SocketIO base
-- [ ] Single stream audio capture
-- [ ] Google Cloud STT integration
-- [ ] Basic UI with one stream
+### Phase 1: Single Engine MVP (Week 1)
+- [ ] Flask + SocketIO setup
+- [ ] Single audio stream capture
+- [ ] Google STT integration
+- [ ] Basic UI with transcript display
 
-### Phase 2: Dual Stream (Week 2)
-- [ ] Dual audio stream capture
-- [ ] Stream manager implementation
-- [ ] Parallel STT processing
+### Phase 2: Dual Engine Processing (Week 2)
+- [ ] Audio distributor service
+- [ ] Add Whisper as second engine
 - [ ] Display both transcripts side-by-side
+- [ ] Show disagreements
 
-### Phase 3: Confidence Scores (Week 3)
-- [ ] Word-level confidence extraction
-- [ ] Confidence tracker service
-- [ ] Heatmap visualization UI
-- [ ] Color-coded transcript display
-
-### Phase 4: LLM Consolidation (Week 4)
+### Phase 3: LLM Consolidation (Week 3)
 - [ ] Consolidation service with GPT-4
+- [ ] Merge logic based on confidence
 - [ ] Context window management
-- [ ] Merge logic implementation
-- [ ] Speaker attribution
+- [ ] Disagreement tracking
 
-### Phase 5: Speaker Management (Week 5)
+### Phase 4: Confidence Visualization (Week 4)
+- [ ] Word-level confidence heatmap
+- [ ] Color-coded transcript
+- [ ] Engine comparison view
+- [ ] Agreement rate statistics
+
+### Phase 5: Speaker Detection (Week 5)
 - [ ] Speaker name extraction
+- [ ] Context-based speaker matching
 - [ ] Manual speaker assignment
-- [ ] Speaker matching across streams
-- [ ] Speaker history tracking
+- [ ] Speaker history
 
 ### Phase 6: Admin Panel (Week 6)
 - [ ] Engine configuration UI
-- [ ] LLM settings management
-- [ ] Speaker management interface
-- [ ] Analytics & session history
+- [ ] Performance comparison dashboard
+- [ ] Settings management
+- [ ] Session history
 
-### Phase 7: Multi-Engine Support (Week 7)
-- [ ] Abstract STT interface
-- [ ] OpenAI Whisper implementation
-- [ ] Deepgram implementation
-- [ ] Engine switching logic
-
----
-
-## API Endpoints
-
-```
-GET  /                      # Main transcription UI
-GET  /admin                 # Admin panel
-POST /api/sessions          # Create new session
-GET  /api/sessions/:id      # Get session details
-POST /api/sessions/:id/end  # End session
-GET  /api/transcripts/:session_id  # Get all transcripts for session
-POST /api/speakers          # Register speaker name
-GET  /api/settings          # Get all settings
-POST /api/settings          # Update settings
-```
+### Phase 7: Advanced Features (Week 7)
+- [ ] Add Deepgram as optional 3rd engine
+- [ ] Export transcripts (TXT, JSON, SRT)
+- [ ] Search functionality
+- [ ] Analytics dashboard
 
 ---
 
 ## Next Steps
 
-1. **Initialize git repository**
-2. **Set up Google Cloud STT credentials**
-3. **Create virtual environment & install dependencies**
-4. **Implement Phase 1: Foundation**
+1. **Set up Google Cloud STT credentials**
+2. **Get OpenAI API key** (for Whisper + GPT-4)
+3. **Create Python virtual environment**
+4. **Start Phase 1 implementation**
 
-Ready to start implementation?
+Ready to begin?

@@ -1,15 +1,19 @@
 # memoAgent
 
-Real-time dual-stream audio transcription with AI-powered consolidation and confidence scoring.
+Real-time audio transcription with **dual-engine processing** for improved accuracy through AI-powered consolidation.
+
+## Concept
+
+Process **one audio stream** through **two different STT engines** (e.g., Google + Whisper) simultaneously, then use an LLM to consolidate both transcripts into the best possible interpretation. Think of it as getting a "second opinion" on your transcription.
 
 ## Features
 
-✨ **Dual-Stream Processing** - Transcribe two audio sources simultaneously
+✨ **Dual-Engine Processing** - One mic, two STT engines for redundancy
 🎯 **Multi-Engine Support** - Google Cloud STT, OpenAI Whisper, Deepgram
-🤖 **LLM Consolidation** - Intelligently merge transcripts using GPT-4/Claude
-📊 **Confidence Scores** - Word-level probability visualization
-👤 **Speaker Management** - Auto-detect and manage speaker names
-⚙️ **Admin Panel** - Configure engines and settings in real-time
+🤖 **LLM Consolidation** - GPT-4/Claude picks the best interpretation
+📊 **Confidence Comparison** - See where engines agree/disagree
+👤 **Speaker Detection** - Auto-identify speakers from context
+⚙️ **Admin Panel** - Switch engines and configure settings
 
 ## Quick Start
 
@@ -69,13 +73,14 @@ export OPENAI_API_KEY=sk-...
 
 ## Usage
 
-### Basic Dual-Stream Transcription
+### Basic Transcription
 
 1. Open app in browser
 2. Click "Start Session"
-3. Select audio sources for Stream A and Stream B
-4. Click "Start Recording"
-5. Watch real-time transcription with confidence scores
+3. Select two STT engines (e.g., Google + Whisper)
+4. Click "Start Recording" (single microphone)
+5. Watch both engines transcribe in real-time
+6. See consolidated result with confidence heatmap
 
 ### Admin Panel
 
@@ -92,17 +97,16 @@ Access at `/admin` to:
 **Start Session:**
 ```javascript
 socket.emit('start_session', {
-  stt_engine_a: 'google',
-  stt_engine_b: 'google',
+  engine_1: 'google',
+  engine_2: 'whisper',
   enable_consolidation: true
 });
 ```
 
-**Send Audio:**
+**Send Audio** (goes to both engines):
 ```javascript
 socket.emit('audio_chunk', {
   session_id: 'uuid',
-  stream_id: 'A',  // or 'B'
   audio_data: base64Audio
 });
 ```
@@ -110,7 +114,7 @@ socket.emit('audio_chunk', {
 **Receive Consolidated Transcript:**
 ```javascript
 socket.on('transcript_consolidated', (data) => {
-  console.log(data.text, data.speaker, data.confidence);
+  console.log(data.text, data.disagreements, data.confidence);
 });
 ```
 
@@ -156,11 +160,12 @@ pytest tests/
 
 ## Confidence Score Visualization
 
-Words are color-coded by confidence:
+Words are color-coded by engine agreement and confidence:
 
-- 🟢 **Green** (0.9-1.0): High confidence, certain
-- 🟡 **Yellow** (0.7-0.9): Medium confidence
-- 🔴 **Red** (0.0-0.7): Low confidence, likely guessed
+- 🟢 **Green**: Both engines agree + high confidence
+- 🟡 **Yellow**: Engines agree but lower confidence
+- 🟠 **Orange**: Engines disagree, LLM picked best
+- 🔴 **Red**: Engines disagree + low confidence
 
 ## Troubleshooting
 
@@ -189,13 +194,13 @@ MIT License - see [LICENSE](./LICENSE)
 
 ## Roadmap
 
-- [ ] Phase 1: Foundation (single stream, basic UI)
-- [ ] Phase 2: Dual stream support
-- [ ] Phase 3: Confidence scores & heatmap
-- [ ] Phase 4: LLM consolidation
-- [ ] Phase 5: Speaker management
+- [ ] Phase 1: Single engine MVP
+- [ ] Phase 2: Dual engine processing
+- [ ] Phase 3: LLM consolidation
+- [ ] Phase 4: Confidence visualization & heatmap
+- [ ] Phase 5: Speaker detection
 - [ ] Phase 6: Admin panel
-- [ ] Phase 7: Multi-engine support
+- [ ] Phase 7: Advanced features (3+ engines, export, analytics)
 
 ---
 
